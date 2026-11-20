@@ -1,0 +1,18 @@
+# Dependencies & builds
+node_modules/
+dist/
+
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Misc
+*.log
+s3check.txt
+.claude/
+.DS_Store
+Thumbs.db

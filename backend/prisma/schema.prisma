@@ -1,0 +1,146 @@
+// Maps to the tables you created manually in pgAdmin.
+// Prisma uses camelCase names in code; @map / @@map point them at the snake_case columns/tables.
+// Tables already exist, so do NOT run `prisma migrate dev` - only `prisma generate`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CANDIDATE
+  RECRUITER
+  ADMIN
+
+  @@map("role")
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  CLOSED
+
+  @@map("job_status")
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+
+  @@map("employment_type")
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEW
+  REJECTED
+  HIRED
+
+  @@map("application_status")
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  recruiter Recruiter?
+  candidate Candidate?
+
+  @@map("users")
+}
+
+model Recruiter {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  companyName    String   @map("company_name")
+  companyWebsite String?  @map("company_website")
+  designation    String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+
+  @@map("recruiters")
+}
+
+model Candidate {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @unique @map("user_id") @db.Uuid
+  phone           String?
+  headline        String?
+  location        String?
+  experienceYears Int       @default(0) @map("experience_years")
+  skills          String[]  @default([])
+  resumeKey       String?   @map("resume_key")
+  resumeFileName  String?   @map("resume_file_name")
+  resumeUpdatedAt DateTime? @map("resume_updated_at") @db.Timestamptz(6)
+  resumeText      String?   @map("resume_text")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@map("candidates")
+}
+
+model Job {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recruiterId    String         @map("recruiter_id") @db.Uuid
+  title          String
+  description    String
+  location       String
+  employmentType EmploymentType @default(FULL_TIME) @map("employment_type")
+  minExperience  Int            @default(0) @map("min_experience")
+  maxExperience  Int?           @map("max_experience")
+  salaryMin      Int?           @map("salary_min")
+  salaryMax      Int?           @map("salary_max")
+  skills         String[]       @default([])
+  status         JobStatus      @default(OPEN)
+  viewsCount     Int            @default(0) @map("views_count")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz(6)
+
+  recruiter    Recruiter     @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([recruiterId], map: "idx_jobs_recruiter")
+  @@index([status, createdAt(sort: Desc)], map: "idx_jobs_status_created")
+  @@map("jobs")
+}
+
+model Application {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId           String            @map("job_id") @db.Uuid
+  candidateId     String            @map("candidate_id") @db.Uuid
+  status          ApplicationStatus @default(APPLIED)
+  matchScore      Float?            @map("match_score") @db.Real
+  coverLetter     String?           @map("cover_letter")
+  recruiterNote   String?           @map("recruiter_note")
+  appliedAt       DateTime          @default(now()) @map("applied_at") @db.Timestamptz(6)
+  statusUpdatedAt DateTime          @default(now()) @map("status_updated_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, candidateId])
+  @@index([jobId, status], map: "idx_app_job_status")
+  @@index([candidateId], map: "idx_app_candidate")
+  @@map("applications")
+}

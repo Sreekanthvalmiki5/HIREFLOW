@@ -1,0 +1,26 @@
+
+# EC2 instance #1 (app server): frontend (nginx) + backend (Node.js), images pulled from ECR.
+# Start with:  docker compose pull && docker compose up -d
+name: hireflow-app
+
+services:
+  backend:
+    image: ${ECR_REGISTRY}/hireflow-backend:${TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.backend
+    expose:
+      - "8000" # only reachable by the frontend container, not from the internet
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  frontend:
+    image: ${ECR_REGISTRY}/hireflow-frontend:${TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
